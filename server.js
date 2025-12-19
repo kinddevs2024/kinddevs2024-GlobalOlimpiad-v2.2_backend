@@ -7,6 +7,7 @@ import { verifyToken } from './lib/auth.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { readFileSync, existsSync } from 'fs';
+import { networkInterfaces } from 'os';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -101,10 +102,10 @@ if (!process.env.JWT_SECRET) {
 }
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = 'localhost';
+const hostname = process.env.HOST || '0.0.0.0'; // Bind to all network interfaces
 const port = parseInt(process.env.PORT || '3000', 10);
 
-const app = next({ dev, hostname, port });
+const app = next({ dev });
 const handle = app.getRequestHandler();
 
 app.prepare().then(() => {
@@ -188,20 +189,41 @@ app.prepare().then(() => {
     });
   });
 
+  // Function to get local IP address
+  const getLocalIP = () => {
+    const interfaces = networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name]) {
+        // Skip internal (loopback) and non-IPv4 addresses
+        if (iface.family === 'IPv4' && !iface.internal) {
+          return iface.address;
+        }
+      }
+    }
+    return 'localhost';
+  };
+
+  const localIP = getLocalIP();
+
   httpServer
     .once('error', (err) => {
       console.error(err);
       process.exit(1);
     })
-    .listen(port, () => {
+    .listen(port, hostname, () => {
       console.log(`========================================`);
       console.log(`✅ Backend Server Running!`);
       console.log(`========================================`);
-      console.log(`🌐 Server: http://${hostname}:${port}`);
-      console.log(`📡 API Base: http://${hostname}:${port}/api`);
-      console.log(`🏥 Health: http://${hostname}:${port}/api/health`);
-      console.log(`🔌 Socket.io: http://${hostname}:${port}`);
+      console.log(`🌐 Local: http://localhost:${port}`);
+      console.log(`🌐 Network: http://${localIP}:${port}`);
+      console.log(`📡 API Base: http://${localIP}:${port}/api`);
+      console.log(`🏥 Health: http://${localIP}:${port}/api/health`);
+      console.log(`📚 Swagger UI: http://${localIP}:${port}/api-docs`);
+      console.log(`📋 Swagger JSON: http://${localIP}:${port}/api/swagger.json`);
+      console.log(`🔌 Socket.io: http://${localIP}:${port}`);
       console.log(`📱 Frontend: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
+      console.log(``);
+      console.log(`💡 Access from other devices using: http://${localIP}:${port}`);
       
       // Verify critical environment variables
       if (process.env.JWT_SECRET) {

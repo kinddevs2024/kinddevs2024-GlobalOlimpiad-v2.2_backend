@@ -22,9 +22,27 @@ export default function SwaggerDocs() {
     script1.onload = () => {
       script2.onload = () => {
         if (window.SwaggerUIBundle) {
+          // Get the current hostname to ensure we use the correct server
+          const currentHost = window.location.host;
+          const protocol = window.location.protocol;
+          
           fetch('/api/swagger.json')
-            .then(res => res.json())
+            .then(res => {
+              if (!res.ok) {
+                throw new Error(`Failed to load Swagger spec: ${res.status} ${res.statusText}`);
+              }
+              return res.json();
+            })
             .then(spec => {
+              // Update the spec to use the current hostname as the primary server
+              if (spec.servers && spec.servers.length > 0) {
+                // Set the first server to use the current hostname
+                spec.servers[0] = {
+                  url: `${protocol}//${currentHost}/api`,
+                  description: 'Current server'
+                };
+              }
+              
               window.ui = window.SwaggerUIBundle({
                 spec: spec,
                 dom_id: '#swagger-ui',
@@ -39,6 +57,19 @@ export default function SwaggerDocs() {
                 layout: "StandaloneLayout",
                 tryItOutEnabled: true
               });
+            })
+            .catch(error => {
+              console.error('Error loading Swagger UI:', error);
+              const swaggerContainer = document.getElementById('swagger-ui');
+              if (swaggerContainer) {
+                swaggerContainer.innerHTML = `
+                  <div style="padding: 20px; text-align: center;">
+                    <h2>Error loading Swagger documentation</h2>
+                    <p>${error.message}</p>
+                    <p>Please ensure the server is running and accessible.</p>
+                  </div>
+                `;
+              }
             });
         }
       };
