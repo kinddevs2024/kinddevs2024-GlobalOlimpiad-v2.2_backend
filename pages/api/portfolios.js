@@ -143,16 +143,59 @@ export default async function handler(req, res) {
       }
     }
 
-    // Query portfolios
-    const portfolios = await Portfolio.find(filter)
-      .populate("studentId", "name email tel profile")
+    // Date range filters
+    if (req.query.createdFrom || req.query.createdTo) {
+      filter.createdAt = {};
+      if (req.query.createdFrom) {
+        filter.createdAt.$gte = new Date(req.query.createdFrom);
+      }
+      if (req.query.createdTo) {
+        // Add one day to include the entire day
+        const endDate = new Date(req.query.createdTo);
+        endDate.setHours(23, 59, 59, 999);
+        filter.createdAt.$lte = endDate;
+      }
+    }
+
+    // Text search filter - use MongoDB $or with $regex for better performance
+    let searchFilter = {};
+    if (req.query.search) {
+      const searchTerm = req.query.search.trim();
+      if (searchTerm) {
+        const searchRegex = new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "i");
+        
+        // Find matching students first
+        const matchingStudents = await User.find({
+          name: searchRegex
+        }).select("_id").lean();
+        const studentIds = matchingStudents.map(s => s._id.toString());
+        
+        // Build search filter: match slug, title, OR studentId
+        searchFilter.$or = [
+          { slug: searchRegex },
+          { "hero.title": searchRegex },
+        ];
+        
+        if (studentIds.length > 0) {
+          searchFilter.$or.push({ studentId: { $in: studentIds } });
+        }
+      }
+    }
+
+    // Merge search filter with existing filters
+    const finalFilter = { ...filter, ...searchFilter };
+
+    // Query portfolios with optimized select and populate
+    const portfolios = await Portfolio.find(finalFilter)
+      .populate("studentId", "name email tel")
+      .select("_id slug hero title portfolioRating ilsLevel verificationStatus createdAt studentId")
       .sort({ portfolioRating: -1, createdAt: -1 })
       .skip(skip)
       .limit(limit)
       .lean();
 
-    // Get total count for pagination
-    const total = await Portfolio.countDocuments(filter);
+    // Get total count for pagination using the same filter
+    const total = await Portfolio.countDocuments(finalFilter);
 
     // Process portfolios: mask contacts for university users
     const isUniversity = user.role === "university";
@@ -160,6 +203,13 @@ export default async function handler(req, res) {
       portfolios.map(async (portfolio) => {
         // Filter personal data (blocks visibility)
         const filteredPortfolio = filterPersonalData(portfolio, false); // Not owner
+
+        // Add student name for easier access
+        if (portfolio.studentId && typeof portfolio.studentId === "object") {
+          filteredPortfolio.studentName = portfolio.studentId.name || "";
+          filteredPortfolio.studentEmail = portfolio.studentId.email || "";
+          filteredPortfolio.studentPhone = portfolio.studentId.tel || "";
+        }
 
         // Mask student contacts if university user
         if (isUniversity && portfolio.studentId) {
