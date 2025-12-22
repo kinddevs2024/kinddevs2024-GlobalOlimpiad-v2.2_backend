@@ -142,28 +142,45 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'GET') {
-      const olympiads = [...getAllOlympiadsWithCreators()]
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      const page = parseInt(req.query.page) || 1;
+      const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+      const skip = (page - 1) * limit;
 
-      return res.json(olympiads.map(olympiad => ({
-        _id: olympiad._id,
-        title: olympiad.title,
-        description: olympiad.description,
-        type: olympiad.type,
-        subject: olympiad.subject,
-        startTime: olympiad.startTime,
-        endTime: olympiad.endTime,
-        duration: olympiad.duration,
-        status: olympiad.status,
-        olympiadLogo: olympiad.olympiadLogo || null,
-        createdAt: olympiad.createdAt,
-      })));
+      const allOlympiads = [...getAllOlympiadsWithCreators()]
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .map(olympiad => ({
+          _id: olympiad._id,
+          title: olympiad.title,
+          description: olympiad.description,
+          type: olympiad.type,
+          subject: olympiad.subject,
+          startTime: olympiad.startTime,
+          endTime: olympiad.endTime,
+          duration: olympiad.duration,
+          status: olympiad.status,
+          olympiadLogo: olympiad.olympiadLogo || null,
+          createdAt: olympiad.createdAt,
+        }));
+
+      const total = allOlympiads.length;
+      const olympiads = allOlympiads.slice(skip, skip + limit);
+
+      return res.json({
+        success: true,
+        data: olympiads,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
+      });
     }
   } catch (error) {
     console.error('Admin olympiads error:', error);
     res.status(500).json({ 
       success: false,
-      message: error.message 
+      message: "Error processing request"
     });
   }
 }

@@ -1,0 +1,101 @@
+Files Changed
+1. GlobalOlimpiad-v2.2/src/styles/globals.css
+Replaced scrollbar width: 8px → var(--spacing-sm)
+Replaced scrollbar border-radius: 4px → var(--radius-sm)
+Replaced link transition: all 0.3s ease → var(--transition-slow)
+Replaced button font-size: 14px → var(--font-size-sm)
+Replaced button font-weight: 500 → var(--font-weight-medium)
+Replaced button transition: all 0.3s ease → var(--transition-slow)
+Replaced loading spinner dimensions 40px → var(--spacing-2xl)
+Replaced loading spinner margin: 20px auto → var(--spacing-lg) auto
+Replaced loading spinner border-radius: 50% → var(--radius-full)
+2. GlobalOlimpiad-v2.2/src/pages/Dashboard/Dashboard.css
+Replaced all hardcoded padding/margin values with spacing tokens (--spacing-xs, --spacing-sm, --spacing-md, --spacing-base, --spacing-lg, --spacing-xl, --spacing-2xl, --spacing-3xl)
+Replaced all hardcoded font-size values with typography tokens (--font-size-xs through --font-size-5xl)
+Replaced all hardcoded font-weight values with weight tokens (--font-weight-medium, --font-weight-semibold, --font-weight-bold)
+Replaced all hardcoded border-radius values with radius tokens (--radius-sm, --radius-md, --radius-full)
+Replaced all hardcoded transitions with transition tokens (--transition-slow)
+Normalized grid gaps to use --spacing-lg
+Ensured consistent card padding, border radius, and hover styles using tokens
+Updated responsive breakpoints to use tokens
+Summary
+All spacing now uses design tokens (no hardcoded px for spacing)
+All typography uses design tokens
+All border radius uses design tokens
+Consistent card styling across Dashboard
+Unified transition timing
+No linter errors
+The codebase now uses the design token system consistently, making it easier to maintain and update styles globally.
+
+
+Fix Global Style Inconsistency and Dashboard Page
+Overview
+Replace all hardcoded px values for spacing, typography, and layout in globals.css and Dashboard.css with CSS variables from design-tokens.css. Ensure consistent spacing, typography, border radius, and hover effects across the platform.
+
+Files to Modify
+1. GlobalOlimpiad-v2.2/src/styles/globals.css
+Changes:
+
+Replace hardcoded scrollbar dimensions (8px, 4px) with design tokens
+Replace hardcoded button font-size (14px) with --font-size-sm
+Replace hardcoded transitions (0.3s ease) with --transition-base or --transition-slow
+Replace hardcoded loading spinner dimensions (40px, 20px) with spacing tokens
+Ensure body padding uses tokens (currently none, may add if needed)
+Normalize main container padding to use tokens
+Replace any remaining px spacing values
+Specific replacements:
+
+Scrollbar width: 8px → use --spacing-sm
+Scrollbar border-radius: 4px → use --radius-sm
+Button font-size: 14px → --font-size-sm
+Button transition: all 0.3s ease → --transition-slow
+Loading spinner width/height: 40px → use spacing token
+Loading spinner margin: 20px auto → use spacing token
+2. GlobalOlimpiad-v2.2/src/pages/Dashboard/Dashboard.css
+Changes:
+
+Replace all hardcoded padding/margin values with spacing tokens
+Replace all hardcoded font-size values with typography tokens
+Replace all hardcoded border-radius values with radius tokens
+Normalize grid gaps to use spacing tokens
+Ensure cards have consistent padding using tokens
+Ensure cards have same border radius using tokens
+Ensure cards have consistent hover styles using tokens
+Replace hardcoded transitions with transition tokens
+Key areas:
+
+.dashboard-page padding: 40px 20px → use --spacing-2xl and --spacing-base
+.dashboard-header margin-bottom: 48px → use --spacing-3xl
+.dashboard-title font-size: 48px → use --font-size-5xl or closest match
+.dashboard-subtitle font-size: 18px → use --font-size-lg
+.filter-button padding: 0.5rem 1rem → use spacing tokens
+.filter-button border-radius: 8px → use --radius-md
+.olympiads-grid gap: 24px → use --spacing-lg
+All card padding/margins → use spacing tokens
+All border-radius values → use radius tokens
+All transitions → use transition tokens
+Implementation Notes
+Do NOT change any logic in Dashboard.jsx
+Do NOT modify API calls
+Only update CSS values to use design tokens
+Maintain visual appearance while using tokens
+Ensure responsive breakpoints remain functional
+Expected Outcome
+All spacing uses design tokens (no hardcoded px for spacing)
+All typography uses design tokens
+All border radius uses design tokens
+Consistent card styling across Dashboard
+Unified transition timing
+Clean, maintainable CSS using the design system
+2 To-dos · Completed In Order
+New Todo
+Replace hardcoded values in globals.css with design tokens (scrollbar, button, spinner, transitions)
+1
+Replace all hardcoded spacing, typography, and layout values in Dashboard.css with design tokens
+1
+Referenced by 1 Agent
+New Agent
+Global styles and dashboard visual consistency · Author · 2 todos assigned
+Ctrl+K to generate command
+Add to ChatCtrl+L
+Ctrl+K to generate command

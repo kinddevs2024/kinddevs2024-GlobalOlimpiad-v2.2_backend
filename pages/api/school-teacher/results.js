@@ -84,6 +84,10 @@ export default async function handler(req, res) {
       })
       .map(user => user._id);
 
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const skip = (page - 1) * limit;
+
     // Get all results for this olympiad
     const allResults = findResultsByOlympiadId(olympiadId);
     
@@ -99,12 +103,15 @@ export default async function handler(req, res) {
       }
       return new Date(a.completedAt) - new Date(b.completedAt);
     });
+    
+    const total = schoolResults.length;
+    const paginatedResults = schoolResults.slice(skip, skip + limit);
 
     // Get all submissions for this olympiad
     const allSubmissions = findSubmissionsByOlympiadId(olympiadId);
 
     // Populate results with user info and submissions
-    const resultsWithDetails = schoolResults.map((result, index) => {
+    const resultsWithDetails = paginatedResults.map((result, index) => {
       const user = findUserById(result.userId);
       const userSubmissions = allSubmissions.filter(s => s.userId === result.userId);
       
@@ -148,14 +155,20 @@ export default async function handler(req, res) {
       schoolName: teacherSchoolName,
       schoolId: teacherSchoolId,
       results: resultsWithDetails,
-      totalParticipants: schoolResults.length,
+      totalParticipants: total,
       totalParticipantsInOlympiad: allResults.length,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     console.error('Get school results error:', error);
     res.status(500).json({ 
       success: false,
-      message: error.message 
+      message: "Error retrieving results"
     });
   }
 }

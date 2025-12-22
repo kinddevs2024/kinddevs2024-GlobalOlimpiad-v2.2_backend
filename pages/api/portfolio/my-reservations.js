@@ -52,10 +52,13 @@ export default async function handler(req, res) {
     }
 
     const user = authResult.user;
-    const limit = parseInt(req.query.limit) || 50;
-    const skip = parseInt(req.query.skip) || 0;
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const skip = (page - 1) * limit;
 
-    const reservations = await getReservedPortfoliosByUser(user._id.toString(), limit, skip);
+    const allReservations = await getReservedPortfoliosByUser(user._id.toString(), 1000, 0);
+    const total = allReservations.length;
+    const reservations = allReservations.slice(skip, skip + limit);
 
     // Add logo URL to each portfolio in reservations
     const reservationsWithLogo = reservations.map((reservation) => {
@@ -98,7 +101,13 @@ export default async function handler(req, res) {
     res.json({
       success: true,
       data: reservationsWithLogo,
-      count: reservationsWithLogo.length
+      count: reservationsWithLogo.length,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     console.error('Get reserved portfolios error:', error);
@@ -120,7 +129,7 @@ export default async function handler(req, res) {
 
     res.status(500).json({
       success: false,
-      message: error.message || 'Error retrieving reserved portfolios'
+      message: 'Error retrieving reserved portfolios'
     });
   }
 }

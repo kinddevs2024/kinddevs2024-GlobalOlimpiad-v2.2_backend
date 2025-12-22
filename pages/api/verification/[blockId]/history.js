@@ -63,13 +63,25 @@ export default async function handler(req, res) {
       });
     }
 
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const skip = (page - 1) * limit;
+
     // Get verification history
-    const history = await getVerificationHistory(blockId);
+    const allHistory = await getVerificationHistory(blockId);
+    const total = allHistory.length;
+    const history = allHistory.slice(skip, skip + limit);
 
     res.json({
       success: true,
       data: history,
       count: history.length,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     console.error("Get verification history error:", error);
@@ -92,7 +104,7 @@ export default async function handler(req, res) {
 
     res.status(500).json({
       success: false,
-      message: error.message || "Error retrieving verification history",
+      message: "Error retrieving verification history",
     });
   }
 }

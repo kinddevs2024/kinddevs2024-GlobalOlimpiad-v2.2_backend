@@ -62,6 +62,10 @@ export default async function handler(req, res) {
       });
     }
 
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const skip = (page - 1) * limit;
+
     const olympiad = findOlympiadById(olympiadId);
     if (!olympiad) {
       return res.status(404).json({ 
@@ -88,44 +92,51 @@ export default async function handler(req, res) {
     // Try MongoDB first, fallback to JSON DB
     let captures = [];
     let useMongoDB = false;
+    let total = 0;
 
     try {
       await connectDBMongo();
       useMongoDB = true;
-      const mongoCaptures = await CameraCapture.find({ olympiadId }).populate('userId', 'name email');
+      const filter = { olympiadId, userId: { $in: schoolUserIds } };
+      total = await CameraCapture.countDocuments(filter);
+      const mongoCaptures = await CameraCapture.find(filter)
+        .populate('userId', 'name email')
+        .select('_id userId olympiadId imagePath captureType timestamp createdAt')
+        .sort({ timestamp: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean();
       captures = mongoCaptures.map(c => ({
         _id: c._id.toString(),
-        userId: c.userId._id.toString(),
+        userId: c.userId?._id?.toString() || c.userId?.toString() || '',
         olympiadId: c.olympiadId.toString(),
         imagePath: c.imagePath,
         captureType: c.captureType,
         timestamp: c.timestamp,
         createdAt: c.createdAt,
         user: {
-          name: c.userId.name,
-          email: c.userId.email,
+          name: c.userId?.name || 'Unknown',
+          email: c.userId?.email || 'Unknown',
         },
       }));
     } catch (mongoError) {
       // Fallback to JSON DB
       const allCaptures = readDB('cameraCaptures');
-      captures = allCaptures.filter(c => c.olympiadId === olympiadId);
+      const filteredCaptures = allCaptures.filter(c => 
+        c.olympiadId === olympiadId && schoolUserIds.includes(c.userId)
+      );
+      total = filteredCaptures.length;
+      captures = filteredCaptures
+        .sort((a, b) => {
+          const timeA = new Date(a.timestamp || a.createdAt);
+          const timeB = new Date(b.timestamp || b.createdAt);
+          return timeB - timeA;
+        })
+        .slice(skip, skip + limit);
     }
 
-    // Filter captures to only include users from the same school
-    const schoolCaptures = captures.filter(capture => 
-      schoolUserIds.includes(capture.userId)
-    );
-
-    // Sort by timestamp (newest first)
-    schoolCaptures.sort((a, b) => {
-      const timeA = new Date(a.timestamp || a.createdAt);
-      const timeB = new Date(b.timestamp || b.createdAt);
-      return timeB - timeA;
-    });
-
     // Populate user info if not already populated
-    const capturesWithDetails = schoolCaptures.map(capture => {
+    const capturesWithDetails = captures.map(capture => {
       const user = findUserById(capture.userId);
       return {
         _id: capture._id,
@@ -153,14 +164,36 @@ export default async function handler(req, res) {
       schoolName: teacherSchoolName,
       schoolId: teacherSchoolId,
       captures: capturesWithDetails,
-      totalCaptures: capturesWithDetails.length,
+      totalCaptures: total,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
       storage: useMongoDB ? 'mongodb' : 'json',
     });
   } catch (error) {
     console.error('Get school camera captures error:', error);
+
+    const isMongoConnectionError =
+      error.name === "MongooseServerSelectionError" ||
+      error.name === "MongoServerSelectionError" ||
+      error.message?.includes("ECONNREFUSED") ||
+      error.message?.includes("connect ECONNREFUSED") ||
+      error.message?.includes("connection skipped");
+
+    if (isMongoConnectionError) {
+      return res.status(503).json({
+        success: false,
+        message:
+          "Database service is currently unavailable. Please ensure MongoDB is running and try again.",
+      });
+    }
+
     res.status(500).json({ 
       success: false,
-      message: error.message 
+      message: "Error retrieving camera captures"
     });
   }
 }

@@ -27,7 +27,11 @@ export default async function handler(req, res) {
 
     await connectDB();
 
-    const users = getAllUsers()
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const skip = (page - 1) * limit;
+
+    const allUsers = getAllUsers()
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .map(user => ({
         _id: user._id,
@@ -37,12 +41,24 @@ export default async function handler(req, res) {
         createdAt: user.createdAt,
       }));
 
-    res.json(users);
+    const total = allUsers.length;
+    const users = allUsers.slice(skip, skip + limit);
+
+    res.json({
+      success: true,
+      data: users,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
+    });
   } catch (error) {
     console.error('Admin users error:', error);
     res.status(500).json({ 
       success: false,
-      message: error.message 
+      message: "Error retrieving users"
     });
   }
 }

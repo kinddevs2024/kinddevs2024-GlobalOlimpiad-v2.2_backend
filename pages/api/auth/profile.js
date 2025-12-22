@@ -134,7 +134,7 @@ export default async function handler(req, res) {
     console.error('Update profile error:', error);
     res.status(400).json({ 
       success: false,
-      message: error.message || 'Failed to update profile' 
+      message: 'Failed to update profile' 
     });
   }
 }

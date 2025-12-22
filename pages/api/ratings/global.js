@@ -89,7 +89,7 @@ export default async function handler(req, res) {
 
     // Parse query parameters
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
     const skip = (page - 1) * limit;
 
     // Build filter
@@ -153,7 +153,7 @@ export default async function handler(req, res) {
 
     res.status(500).json({
       success: false,
-      message: error.message || "Error fetching global ratings",
+      message: "Error fetching global ratings",
     });
   }
 }

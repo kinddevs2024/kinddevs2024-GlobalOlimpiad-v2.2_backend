@@ -133,7 +133,6 @@ export default async function handler(req, res) {
         // Security check: ensure path is within uploads directory
         if (normalizedOldPath.startsWith(uploadsDir) && fs.existsSync(normalizedOldPath)) {
           fs.unlinkSync(normalizedOldPath);
-          console.log('Deleted old logo:', normalizedOldPath);
         }
       } catch (deleteError) {
         console.warn('Could not delete old logo file:', deleteError.message);
@@ -190,8 +189,7 @@ export default async function handler(req, res) {
     console.error('Upload logo error:', error);
     res.status(500).json({
       success: false,
-      message: error.message || 'Failed to upload logo',
-      error: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      message: 'Failed to upload logo',
     });
   }
 }

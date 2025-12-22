@@ -92,7 +92,6 @@ export default async function handler(req, res) {
       });
     }
 
-    console.log(`Converting ${files.length} images to video for session ${sessionId}`);
 
     // Renumber files to start from 0 for ffmpeg pattern matching
     // Extract numbers from filenames and renumber sequentially
@@ -132,16 +131,7 @@ export default async function handler(req, res) {
           "-vf scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2",
           "-r 2", // Output frame rate: 2 fps (0.5 seconds per frame)
         ])
-        .on("start", (commandLine) => {
-          console.log("Video conversion started:", commandLine);
-        })
-        .on("progress", (progress) => {
-          if (progress.percent) {
-            console.log(`Converting: ${Math.round(progress.percent)}% done`);
-          }
-        })
         .on("end", () => {
-          console.log("Video conversion finished");
           resolve();
         })
         .on("error", (err) => {
@@ -217,7 +207,7 @@ export default async function handler(req, res) {
 
     res.status(500).json({
       success: false,
-      message: error.message || "An unexpected error occurred",
+      message: "An unexpected error occurred",
     });
   }
 }

@@ -44,24 +44,35 @@ export default async function handler(req, res) {
       });
     }
 
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const skip = (page - 1) * limit;
+
     // Try MongoDB first, fallback to JSON DB
     let captures = [];
     let useMongoDB = false;
+    let total = 0;
 
     try {
       await connectDBMongo();
       useMongoDB = true;
-      const mongoCaptures = await CameraCapture.find({ olympiadId })
+      const filter = { olympiadId };
+      total = await CameraCapture.countDocuments(filter);
+      const mongoCaptures = await CameraCapture.find(filter)
         .populate('userId', 'name email')
-        .sort({ timestamp: -1 });
+        .select('_id userId olympiadId imagePath captureType timestamp createdAt')
+        .sort({ timestamp: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean();
       
       captures = mongoCaptures.map(capture => ({
         _id: capture._id.toString(),
         olympiadId: capture.olympiadId.toString(),
-        userId: capture.userId._id.toString(),
+        userId: capture.userId?._id?.toString() || capture.userId?.toString() || '',
         user: {
-          name: capture.userId.name,
-          email: capture.userId.email,
+          name: capture.userId?.name || 'Unknown',
+          email: capture.userId?.email || 'Unknown',
         },
         imagePath: capture.imagePath,
         imageUrl: `/api/uploads/${capture.imagePath}`,
@@ -72,13 +83,15 @@ export default async function handler(req, res) {
     } catch (mongoError) {
       // Fallback to JSON DB
       const allCaptures = readDB('cameraCaptures');
-      captures = allCaptures
-        .filter(c => c.olympiadId === olympiadId)
+      const filteredCaptures = allCaptures.filter(c => c.olympiadId === olympiadId);
+      total = filteredCaptures.length;
+      captures = filteredCaptures
         .sort((a, b) => {
           const timeA = new Date(a.timestamp || a.createdAt);
           const timeB = new Date(b.timestamp || b.createdAt);
           return timeB - timeA;
         })
+        .slice(skip, skip + limit)
         .map(capture => {
           const user = findUserById(capture.userId);
           return {
@@ -125,14 +138,20 @@ export default async function handler(req, res) {
       success: true,
       olympiadId,
       captures,
-      total: captures.length,
+      total,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
       storage: useMongoDB ? 'mongodb' : 'json',
     });
   } catch (error) {
     console.error('Get camera captures error:', error);
     res.status(500).json({ 
       success: false,
-      message: error.message 
+      message: 'Error retrieving camera captures'
     });
   }
 }

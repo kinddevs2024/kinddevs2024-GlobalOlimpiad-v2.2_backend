@@ -86,6 +86,9 @@ export default async function handler(req, res) {
 
     // Get filters from query
     const { blockType, portfolioId, dateFrom, dateTo } = req.query;
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const skip = (page - 1) * limit;
 
     const filters = {};
     if (portfolioId) filters.portfolioId = portfolioId;
@@ -94,14 +97,17 @@ export default async function handler(req, res) {
     if (blockType) filters.blockType = blockType;
 
     // Get pending requests
-    const pendingRequests = await getPendingVerificationRequests(filters);
+    const allPendingRequests = await getPendingVerificationRequests(filters);
 
     // Enrich with block information
     await connectDB();
+    const total = allPendingRequests.length;
+    const pendingRequests = allPendingRequests.slice(skip, skip + limit);
+    
     const enrichedRequests = await Promise.all(
       pendingRequests.map(async (request) => {
         try {
-          const portfolio = await Portfolio.findById(request.portfolioId);
+          const portfolio = await Portfolio.findById(request.portfolioId).select('_id slug layout').lean();
           if (!portfolio) {
             return { ...request, block: null, portfolio: null };
           }
@@ -144,6 +150,12 @@ export default async function handler(req, res) {
       success: true,
       data: filteredRequests,
       count: filteredRequests.length,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     console.error("Get pending requests error:", error);
@@ -166,7 +178,7 @@ export default async function handler(req, res) {
 
     res.status(500).json({
       success: false,
-      message: error.message || "Error retrieving pending requests",
+      message: "Error retrieving pending requests",
     });
   }
 }

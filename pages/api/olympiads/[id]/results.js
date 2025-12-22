@@ -43,7 +43,7 @@ export default async function handler(req, res) {
     if (isUniversity) {
       try {
         await connectMongoDB();
-        const olympiadDoc = await Olympiad.findById(olympiadId).lean();
+        const olympiadDoc = await Olympiad.findById(olympiadId).select('_id ownerUniversityId').lean();
         if (olympiadDoc && olympiadDoc.ownerUniversityId) {
           isOlympiadOwner = String(olympiadDoc.ownerUniversityId) === String(userId);
         }
@@ -55,6 +55,10 @@ export default async function handler(req, res) {
 
     // If admin/owner, return all results
     if (isAdminOrOwner) {
+      const page = parseInt(req.query.page) || 1;
+      const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+      const skip = (page - 1) * limit;
+      
       const allResults = findResultsByOlympiadId(olympiadId)
         .sort((a, b) => {
           if (b.totalScore !== a.totalScore) {
@@ -63,7 +67,10 @@ export default async function handler(req, res) {
           return new Date(a.completedAt) - new Date(b.completedAt);
         });
 
-      const allResultsWithUsers = allResults.map((result, index) => {
+      const total = allResults.length;
+      const paginatedResults = allResults.slice(skip, skip + limit);
+
+      const allResultsWithUsers = paginatedResults.map((result, index) => {
         const user = findUserById(result.userId);
         let position = '';
         if (index === 0) position = '🥇 1st Place';
@@ -95,8 +102,14 @@ export default async function handler(req, res) {
         olympiadType: olympiad.type,
         olympiadLogo: olympiad.olympiadLogo || null,
         allResults: allResultsWithUsers,
-        totalParticipants: allResults.length,
+        totalParticipants: total,
         isAdminView: true,
+        pagination: {
+          page,
+          limit,
+          total,
+          pages: Math.ceil(total / limit),
+        },
       });
     }
 
@@ -241,7 +254,8 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error('Get results error:', error);
     res.status(500).json({ 
-      message: error.message 
+      success: false,
+      message: 'Error retrieving results'
     });
   }
 }

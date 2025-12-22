@@ -63,7 +63,7 @@ export default async function handler(req, res) {
     console.error('Update cookie consent error:', error);
     res.status(400).json({ 
       success: false,
-      message: error.message || 'Failed to update cookie consent' 
+      message: 'Failed to update cookie consent' 
     });
   }
 }

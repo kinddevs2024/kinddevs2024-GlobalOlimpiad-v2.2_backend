@@ -167,7 +167,6 @@ export default async function handler(req, res) {
         );
         writeDB('submissions', filteredSubmissions);
         
-        console.log(`Allowing resubmission for user ${userId} in olympiad ${olympiadId}`);
         // Continue with submission process
       } else {
         return res.status(400).json({ 
@@ -287,7 +286,6 @@ export default async function handler(req, res) {
       for (const [questionId, answer] of Object.entries(answers)) {
         const question = allQuestions.find((q) => q._id === questionId);
         if (!question) {
-          console.warn(`Question ${questionId} not found, skipping`);
           continue;
         }
 
@@ -328,7 +326,6 @@ export default async function handler(req, res) {
       for (const [questionId, answerValue] of Object.entries(answers)) {
         const question = allQuestions.find((q) => q._id === questionId);
         if (!question) {
-          console.warn(`Question ${questionId} not found, skipping`);
           continue;
         }
 
@@ -360,16 +357,6 @@ export default async function handler(req, res) {
             isCorrect = essayScoring.score > 0;
             submissionAnswer = answerValue.trim();
 
-            // Log analysis details for debugging
-            console.log('Essay Analysis (Mixed):', {
-              userId,
-              olympiadId,
-              questionId,
-              score: essayScoring.score,
-              maxPoints: essayScoring.maxPoints,
-              originality: essayScoring.analysis.originality,
-              aiProbability: essayScoring.analysis.aiProbability,
-            });
           }
         }
 
@@ -420,16 +407,6 @@ export default async function handler(req, res) {
         submissions.push(submission);
         totalScore = essayScoring.score; // Set total score for essay
 
-        // Log analysis details for debugging
-        console.log('Essay Analysis:', {
-          userId,
-          olympiadId,
-          score: essayScoring.score,
-          maxPoints: essayScoring.maxPoints,
-          originality: essayScoring.analysis.originality,
-          aiProbability: essayScoring.analysis.aiProbability,
-          wordCount: essayScoring.analysis.wordCount,
-        });
       } else {
         return res.status(400).json({ 
           success: false,
@@ -473,7 +450,7 @@ export default async function handler(req, res) {
     console.error('Submit error:', error);
     res.status(500).json({ 
       success: false,
-      message: error.message 
+      message: "Failed to submit olympiad. Please try again."
     });
   }
 }

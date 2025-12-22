@@ -1,7 +1,9 @@
 import { handleCORS } from "../../../../lib/api-helpers.js";
 import { protect } from "../../../../lib/auth.js";
 import { authorize } from "../../../../lib/auth.js";
-import { findPortfolioById, updatePortfolioBlock } from "../../../../lib/portfolio-helper.js";
+import { updatePortfolioBlock } from "../../../../lib/portfolio-helper.js";
+import Portfolio from "../../../../models/Portfolio.js";
+import { connectDB } from "../../../../lib/mongodb.js";
 import {
   createVerificationLog,
   ensureBlockVerification,
@@ -193,7 +195,7 @@ export default async function handler(req, res) {
     const statusCode = error.message?.includes("not found") ? 404 : 500;
     res.status(statusCode).json({
       success: false,
-      message: error.message || "Error approving verification",
+      message: statusCode === 404 ? "Verification request not found" : "Error approving verification",
     });
   }
 }
@@ -203,7 +205,7 @@ async function findPortfolioByBlockId(blockId) {
   // Search for portfolio containing this block
   const portfolios = await Portfolio.find({
     "layout.blocks.id": blockId,
-  }).limit(1);
+  }).select('_id slug layout').lean().limit(1);
 
   return portfolios.length > 0 ? portfolios[0] : null;
 }

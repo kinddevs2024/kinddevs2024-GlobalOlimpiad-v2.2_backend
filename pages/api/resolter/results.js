@@ -65,6 +65,10 @@ export default async function handler(req, res) {
       });
     }
 
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const skip = (page - 1) * limit;
+
     // Get all results for this olympiad
     const allResults = findResultsByOlympiadId(olympiadId).sort((a, b) => {
       if (b.totalScore !== a.totalScore) {
@@ -72,12 +76,15 @@ export default async function handler(req, res) {
       }
       return new Date(a.completedAt) - new Date(b.completedAt);
     });
+    
+    const total = allResults.length;
+    const paginatedResults = allResults.slice(skip, skip + limit);
 
     // Get all submissions for this olympiad
     const allSubmissions = findSubmissionsByOlympiadId(olympiadId);
 
     // Populate results with user info and submissions
-    const resultsWithDetails = allResults.map((result, index) => {
+    const resultsWithDetails = paginatedResults.map((result, index) => {
       const user = findUserById(result.userId);
       const userSubmissions = allSubmissions.filter(
         (s) => s.userId === result.userId
@@ -125,13 +132,19 @@ export default async function handler(req, res) {
       olympiadType: olympiad.type,
       olympiadLogo: olympiad.olympiadLogo || null,
       results: resultsWithDetails,
-      totalParticipants: allResults.length,
+      totalParticipants: total,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     console.error("Get all results error:", error);
     res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Error retrieving results",
     });
   }
 }

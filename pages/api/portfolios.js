@@ -67,10 +67,8 @@ import { filterPersonalData } from "../../lib/portfolio-helper.js";
  *         description: Forbidden - University access required
  */
 export default async function handler(req, res) {
-  // Handle CORS preflight
   if (handleCORS(req, res)) return;
 
-  // Set cache-control headers
   res.setHeader(
     "Cache-Control",
     "no-store, no-cache, must-revalidate, private"
@@ -86,7 +84,6 @@ export default async function handler(req, res) {
   }
 
   try {
-    // Check authentication
     const authResult = await protect(req);
     if (authResult.error) {
       return res.status(authResult.status).json({
@@ -97,7 +94,6 @@ export default async function handler(req, res) {
 
     const user = authResult.user;
 
-    // Check role: university, checker, admin, or owner
     const authError = authorize("university", "checker", "admin", "owner")(user);
     if (authError) {
       return res.status(authError.status).json({
@@ -108,20 +104,16 @@ export default async function handler(req, res) {
 
     await connectDB();
 
-    // Parse query parameters
     const page = parseInt(req.query.page) || 1;
-    const limit = parseInt(req.query.limit) || 20;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
     const skip = (page - 1) * limit;
 
-    // Build filter
     const filter = {};
 
-    // Verification status filter
     if (req.query.verificationStatus) {
       filter.verificationStatus = req.query.verificationStatus;
     }
 
-    // Rating filters
     if (req.query.minRating || req.query.maxRating) {
       filter.portfolioRating = {};
       if (req.query.minRating) {
@@ -132,7 +124,6 @@ export default async function handler(req, res) {
       }
     }
 
-    // ILS level filters
     if (req.query.minILSLevel || req.query.maxILSLevel) {
       filter.ilsLevel = {};
       if (req.query.minILSLevel) {
@@ -143,34 +134,29 @@ export default async function handler(req, res) {
       }
     }
 
-    // Date range filters
     if (req.query.createdFrom || req.query.createdTo) {
       filter.createdAt = {};
       if (req.query.createdFrom) {
         filter.createdAt.$gte = new Date(req.query.createdFrom);
       }
       if (req.query.createdTo) {
-        // Add one day to include the entire day
         const endDate = new Date(req.query.createdTo);
         endDate.setHours(23, 59, 59, 999);
         filter.createdAt.$lte = endDate;
       }
     }
 
-    // Text search filter - use MongoDB $or with $regex for better performance
     let searchFilter = {};
     if (req.query.search) {
       const searchTerm = req.query.search.trim();
       if (searchTerm) {
         const searchRegex = new RegExp(searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "i");
         
-        // Find matching students first
         const matchingStudents = await User.find({
           name: searchRegex
         }).select("_id").lean();
         const studentIds = matchingStudents.map(s => s._id.toString());
         
-        // Build search filter: match slug, title, OR studentId
         searchFilter.$or = [
           { slug: searchRegex },
           { "hero.title": searchRegex },
@@ -182,10 +168,8 @@ export default async function handler(req, res) {
       }
     }
 
-    // Merge search filter with existing filters
     const finalFilter = { ...filter, ...searchFilter };
 
-    // Query portfolios with optimized select and populate
     const portfolios = await Portfolio.find(finalFilter)
       .populate("studentId", "name email tel")
       .select("_id slug hero title portfolioRating ilsLevel verificationStatus createdAt studentId")
@@ -194,24 +178,19 @@ export default async function handler(req, res) {
       .limit(limit)
       .lean();
 
-    // Get total count for pagination using the same filter
     const total = await Portfolio.countDocuments(finalFilter);
 
-    // Process portfolios: mask contacts for university users
     const isUniversity = user.role === "university";
     const processedPortfolios = await Promise.all(
       portfolios.map(async (portfolio) => {
-        // Filter personal data (blocks visibility)
-        const filteredPortfolio = filterPersonalData(portfolio, false); // Not owner
+        const filteredPortfolio = filterPersonalData(portfolio, false);
 
-        // Add student name for easier access
         if (portfolio.studentId && typeof portfolio.studentId === "object") {
           filteredPortfolio.studentName = portfolio.studentId.name || "";
           filteredPortfolio.studentEmail = portfolio.studentId.email || "";
           filteredPortfolio.studentPhone = portfolio.studentId.tel || "";
         }
 
-        // Mask student contacts if university user
         if (isUniversity && portfolio.studentId) {
           const studentUser = portfolio.studentId;
           const maskedStudent = await maskUserContacts(
@@ -239,7 +218,6 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error("List portfolios error:", error);
 
-    // Handle MongoDB connection errors
     const isMongoConnectionError =
       error.name === "MongooseServerSelectionError" ||
       error.name === "MongoServerSelectionError" ||
@@ -257,7 +235,7 @@ export default async function handler(req, res) {
 
     res.status(500).json({
       success: false,
-      message: error.message || "Error listing portfolios",
+      message: "Error listing portfolios",
     });
   }
 }

@@ -71,17 +71,6 @@ export default async function handler(req, res) {
       const parsed = await parseForm(req);
       fields = parsed.fields;
       files = parsed.files;
-
-      // Debug logging
-      console.log(
-        "[upload-logo] Parsed fields:",
-        fields ? Object.keys(fields) : "none"
-      );
-      console.log(
-        "[upload-logo] Parsed files:",
-        files ? Object.keys(files) : "none"
-      );
-      console.log("[upload-logo] Query params:", req.query);
     } catch (parseError) {
       console.error("Error parsing form data:", parseError);
       return res.status(400).json({
@@ -92,8 +81,6 @@ export default async function handler(req, res) {
 
     // Get olympiadId from query params or form fields
     const olympiadId = req.query.olympiadId || fields?.olympiadId;
-
-    console.log("[upload-logo] olympiadId:", olympiadId);
 
     if (!olympiadId) {
       return res.status(400).json({
@@ -128,21 +115,6 @@ export default async function handler(req, res) {
         logoFile = Array.isArray(files.file) ? files.file[0] : files.file;
       }
     }
-
-    console.log("[upload-logo] logoFile found:", !!logoFile);
-    console.log(
-      "[upload-logo] logoFile details:",
-      logoFile
-        ? {
-            hasMimetype: !!logoFile.mimetype,
-            mimetype: logoFile.mimetype,
-            hasSize: !!logoFile.size,
-            size: logoFile.size,
-            originalFilename: logoFile.originalFilename,
-            name: logoFile.name,
-          }
-        : "no file"
-    );
 
     if (!logoFile) {
       return res.status(400).json({
@@ -219,7 +191,6 @@ export default async function handler(req, res) {
           fs.existsSync(normalizedOldPath)
         ) {
           fs.unlinkSync(normalizedOldPath);
-          console.log("Deleted old olympiad logo:", normalizedOldPath);
         }
       } catch (deleteError) {
         console.warn(
@@ -310,8 +281,7 @@ export default async function handler(req, res) {
     console.error("Upload olympiad logo error:", error);
     res.status(500).json({
       success: false,
-      message: error.message || "Failed to upload olympiad logo",
-      error: process.env.NODE_ENV === "development" ? error.stack : undefined,
+      message: "Failed to upload olympiad logo",
     });
   }
 }

@@ -72,7 +72,7 @@ export default async function handler(req, res) {
     console.error('Owner analytics error:', error);
     res.status(500).json({ 
       success: false,
-      message: error.message 
+      message: "Error generating analytics"
     });
   }
 }

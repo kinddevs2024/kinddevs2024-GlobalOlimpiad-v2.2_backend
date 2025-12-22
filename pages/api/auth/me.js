@@ -52,7 +52,7 @@ export default async function handler(req, res) {
     console.error('Get user error:', error);
     res.status(500).json({ 
       success: false,
-      message: error.message 
+      message: "Failed to retrieve user information"
     });
   }
 }

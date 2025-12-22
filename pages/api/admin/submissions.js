@@ -36,6 +36,9 @@ export default async function handler(req, res) {
     await connectDB();
 
     const { olympiadId, userId } = req.query;
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const skip = (page - 1) * limit;
     
     // Get all submissions and filter by query params
     let submissions = getAllSubmissions();
@@ -50,6 +53,9 @@ export default async function handler(req, res) {
 
     // Sort by creation date (newest first)
     submissions.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    
+    const total = submissions.length;
+    submissions = submissions.slice(skip, skip + limit);
 
     // Group submissions by user and olympiad
     const submissionMap = {};
@@ -96,13 +102,19 @@ export default async function handler(req, res) {
     res.json({
       success: true,
       data: Object.values(submissionMap),
-      total: Object.keys(submissionMap).length
+      total: Object.keys(submissionMap).length,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     console.error('Admin submissions error:', error);
     res.status(500).json({ 
       success: false,
-      message: error.message 
+      message: "Error retrieving submissions"
     });
   }
 }

@@ -197,7 +197,7 @@ export default async function handler(req, res) {
     const statusCode = error.message?.includes("not found") ? 404 : 500;
     res.status(statusCode).json({
       success: false,
-      message: error.message || "Error rejecting verification",
+      message: statusCode === 404 ? "Verification request not found" : "Error rejecting verification",
     });
   }
 }
@@ -207,7 +207,7 @@ async function findPortfolioByBlockId(blockId) {
   // Search for portfolio containing this block
   const portfolios = await Portfolio.find({
     "layout.blocks.id": blockId,
-  }).limit(1);
+  }).select('_id slug layout').lean().limit(1);
 
   return portfolios.length > 0 ? portfolios[0] : null;
 }

@@ -319,7 +319,7 @@ export default async function handler(req, res) {
 
       res.status(500).json({
         success: false,
-        message: error.message || "Error retrieving portfolio",
+        message: "Error retrieving portfolio",
       });
     }
   } else if (req.method === "PUT") {
@@ -488,7 +488,7 @@ export default async function handler(req, res) {
 
         res.status(500).json({
           success: false,
-          message: error.message || "Error updating portfolio",
+          message: "Error updating portfolio",
         });
       }
     }
@@ -561,7 +561,7 @@ export default async function handler(req, res) {
 
         res.status(500).json({
           success: false,
-          message: error.message || "Error deleting portfolio",
+          message: "Error deleting portfolio",
         });
       }
     }

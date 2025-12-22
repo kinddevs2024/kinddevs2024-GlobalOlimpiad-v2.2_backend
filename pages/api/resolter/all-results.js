@@ -44,6 +44,9 @@ export default async function handler(req, res) {
     await connectDB();
 
     const { olympiadId, userId } = req.query;
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const skip = (page - 1) * limit;
 
     // Get all results
     let allResults = getAllResults();
@@ -130,21 +133,29 @@ export default async function handler(req, res) {
       totalParticipants: data.results.length,
     }));
 
+    const paginatedOlympiadResults = olympiadResults.slice(skip, skip + limit);
+
     return res.json({
       success: true,
       totalResults: allResults.length,
       totalOlympiads: Object.keys(resultsByOlympiad).length,
-      olympiadResults,
+      olympiadResults: paginatedOlympiadResults,
       filters: {
         olympiadId: olympiadId || null,
         userId: userId || null,
+      },
+      pagination: {
+        page,
+        limit,
+        total: olympiadResults.length,
+        pages: Math.ceil(olympiadResults.length / limit),
       },
     });
   } catch (error) {
     console.error('Get all results error:', error);
     res.status(500).json({ 
       success: false,
-      message: error.message 
+      message: 'Error retrieving results'
     });
   }
 }

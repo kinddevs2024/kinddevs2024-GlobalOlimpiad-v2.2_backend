@@ -30,6 +30,10 @@ export default async function handler(req, res) {
     await connectDB();
 
     const { id: olympiadId } = req.query;
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const skip = (page - 1) * limit;
+    
     const olympiad = findOlympiadById(olympiadId);
 
     if (!olympiad) {
@@ -59,8 +63,11 @@ export default async function handler(req, res) {
         return new Date(a.completedAt) - new Date(b.completedAt);
       });
 
+    const total = allResults.length;
+    const paginatedResults = allResults.slice(skip, skip + limit);
+
     // Populate user information
-    const leaderboard = allResults.map((result, index) => {
+    const leaderboard = paginatedResults.map((result, index) => {
       const user = findUserById(result.userId);
       
       // Determine position label
@@ -89,15 +96,40 @@ export default async function handler(req, res) {
       olympiadId: olympiad._id,
       olympiadTitle: olympiad.title,
       olympiadType: olympiad.type,
-      totalParticipants: leaderboard.length,
+      totalParticipants: total,
       leaderboard,
-      topThree: leaderboard.slice(0, 3),
+      topThree: allResults.slice(0, 3).map((result, index) => {
+        const user = findUserById(result.userId);
+        let position = '';
+        if (index === 0) position = '🥇 1st Place';
+        else if (index === 1) position = '🥈 2nd Place';
+        else if (index === 2) position = '🥉 3rd Place';
+        else position = `${index + 1}th Place`;
+        return {
+          rank: index + 1,
+          position,
+          userId: result.userId,
+          userName: user ? user.name : 'Unknown',
+          userEmail: user ? user.email : 'Unknown',
+          score: result.totalScore,
+          totalPoints: result.maxScore,
+          percentage: Math.round(result.percentage * 100) / 100,
+          completedAt: result.completedAt,
+          timeSpent: result.timeSpent || 0,
+        };
+      }),
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     console.error('Get leaderboard error:', error);
     res.status(500).json({ 
       success: false,
-      message: error.message 
+      message: 'Error retrieving leaderboard'
     });
   }
 }

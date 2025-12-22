@@ -106,7 +106,7 @@ export default async function handler(req, res) {
     console.error('Login error:', error);
     res.status(500).json({ 
       success: false,
-      message: error.message 
+      message: "Login failed. Please try again."
     });
   }
 }

@@ -31,11 +31,24 @@ export default async function handler(req, res) {
     const { olympiadId } = req.query;
 
     if (olympiadId) {
+      const page = parseInt(req.query.page) || 1;
+      const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+      const skip = (page - 1) * limit;
+
       // Detailed report for specific olympiad
-      const olympiad = await Olympiad.findById(olympiadId);
+      const olympiad = await Olympiad.findById(olympiadId).select('_id title description type subject startTime endTime duration status olympiadLogo createdAt').lean();
+      const total = await Result.countDocuments({ olympiadId });
       const results = await Result.find({ olympiadId })
         .populate('userId', 'name email')
-        .sort({ totalScore: -1 });
+        .select('_id userId olympiadId totalScore maxScore percentage completedAt timeSpent')
+        .sort({ totalScore: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean();
+
+      const allResultsForSummary = await Result.find({ olympiadId })
+        .select('percentage')
+        .lean();
 
       return res.json({
         success: true,
@@ -43,21 +56,29 @@ export default async function handler(req, res) {
           olympiad,
           results,
           summary: {
-            totalParticipants: results.length,
-            averageScore: results.length > 0
-              ? results.reduce((sum, r) => sum + r.percentage, 0) / results.length
+            totalParticipants: total,
+            averageScore: allResultsForSummary.length > 0
+              ? allResultsForSummary.reduce((sum, r) => sum + (Number(r.percentage) || 0), 0) / allResultsForSummary.length
               : 0,
-            highestScore: results.length > 0 ? results[0].percentage : 0,
+            highestScore: allResultsForSummary.length > 0 
+              ? Math.max(...allResultsForSummary.map(r => Number(r.percentage) || 0))
+              : 0,
+          },
+          pagination: {
+            page,
+            limit,
+            total,
+            pages: Math.ceil(total / limit),
           },
         },
       });
     }
 
     // General reports for all olympiads
-    const olympiads = await Olympiad.find().populate('createdBy', 'name');
+    const olympiads = await Olympiad.find().populate('createdBy', 'name').select('_id title status olympiadLogo').lean();
     const reports = await Promise.all(
       olympiads.map(async (olympiad) => {
-        const results = await Result.find({ olympiadId: olympiad._id });
+        const results = await Result.find({ olympiadId: olympiad._id }).select('_id percentage').lean();
         return {
           olympiad: {
             _id: olympiad._id,
@@ -67,7 +88,7 @@ export default async function handler(req, res) {
           },
           participants: results.length,
           averageScore: results.length > 0
-            ? results.reduce((sum, r) => sum + r.percentage, 0) / results.length
+            ? results.reduce((sum, r) => sum + (Number(r.percentage) || 0), 0) / results.length
             : 0,
         };
       })
@@ -81,9 +102,25 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     console.error('Owner reports error:', error);
+
+    const isMongoConnectionError =
+      error.name === "MongooseServerSelectionError" ||
+      error.name === "MongoServerSelectionError" ||
+      error.message?.includes("ECONNREFUSED") ||
+      error.message?.includes("connect ECONNREFUSED") ||
+      error.message?.includes("connection skipped");
+
+    if (isMongoConnectionError) {
+      return res.status(503).json({
+        success: false,
+        message:
+          "Database service is currently unavailable. Please ensure MongoDB is running and try again.",
+      });
+    }
+
     res.status(500).json({ 
       success: false,
-      message: error.message 
+      message: "Error generating reports"
     });
   }
 }

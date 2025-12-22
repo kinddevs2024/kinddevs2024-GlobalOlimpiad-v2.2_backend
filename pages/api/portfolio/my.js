@@ -44,8 +44,14 @@ export default async function handler(req, res) {
 
     const user = authResult.user;
 
+    const page = parseInt(req.query.page) || 1;
+    const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+    const skip = (page - 1) * limit;
+
     // Get all portfolios for the current user
-    const portfolios = await findPortfoliosByStudentId(user._id.toString());
+    const allPortfolios = await findPortfoliosByStudentId(user._id.toString());
+    const total = allPortfolios.length;
+    const portfolios = allPortfolios.slice(skip, skip + limit);
 
     // Add logo URL to each portfolio
     const portfoliosWithLogo = portfolios.map((portfolio) => {
@@ -78,7 +84,13 @@ export default async function handler(req, res) {
     res.json({
       success: true,
       data: portfoliosWithLogo,
-      count: portfoliosWithLogo.length
+      count: portfoliosWithLogo.length,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     console.error('Get my portfolios error:', error);
@@ -100,7 +112,7 @@ export default async function handler(req, res) {
 
     res.status(500).json({
       success: false,
-      message: error.message || 'Error retrieving portfolios'
+      message: 'Error retrieving portfolios'
     });
   }
 }
